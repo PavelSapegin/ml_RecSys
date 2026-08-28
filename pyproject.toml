@@ -28,3 +28,9 @@ check_untyped_defs = true
 no_implicit_optional = true
 show_error_codes = true
 pretty = true
+
+[[tool.mypy.override]]
+module = [
+  "sklearn.*"
+]
+ignore_missing_imports = true
