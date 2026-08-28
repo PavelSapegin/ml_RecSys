@@ -20,7 +20,7 @@ class PopularityBaseline:
             R="mean"
         ).reset_index()
 
-        m = movie_stats["v"].quantile(0.75)
+        m = movie_stats["v"].quantile(self.quantile)
         C = df["rating"].mean()
 
         movie_stats["weighted_rating"] = self._bayes_weighted_score(df_stats=movie_stats, m=m, C=C)
