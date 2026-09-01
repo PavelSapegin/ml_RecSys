@@ -37,7 +37,7 @@ class ItemBasedCF:
         return self
 
     def recommend_top_n(self, userId: int, top_n: int = 10) -> list[int]:
-        # After
+
         if (
             self.user_item_df_ is None
             or self.item_sim_df_ is None
