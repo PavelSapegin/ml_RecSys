@@ -111,13 +111,15 @@ class MatrixFactorization:
 
                 if patience_counter == patience:
                     best_epoch = epoch
-                    self.p_matrix = p_matrix_best
-                    self.q_matrix = q_matrix_best
-                    self.bias_user = bias_user_best
-                    self.bias_item = bias_item_best
                     print(f"[Final best epoch: {best_epoch}], Train loss: {train_loss:.4f}, \
                           Val loss: {val_loss:.5f}")
                     break
+
+
+        self.p_matrix = p_matrix_best
+        self.q_matrix = q_matrix_best
+        self.bias_user = bias_user_best
+        self.bias_item = bias_item_best
 
         return self
 
