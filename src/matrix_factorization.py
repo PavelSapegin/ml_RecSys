@@ -13,6 +13,7 @@ class MatrixFactorization:
         lm: float = 0.02,
         k: int = 20,
         fallback_model: PopularityBaseline | None = None,
+        random_state: int | None = 42,
     ):
         self.train_fit = train
         self.val_fit = val
@@ -26,9 +27,11 @@ class MatrixFactorization:
         self.learning_rate = learning_rate
         self.lm = lm
 
+        self.rng = np.random.RandomState(random_state)
+
         scale = 1.0 / np.sqrt(k)
-        self.p_matrix = np.random.normal(0, scale, size=(n_users, k))
-        self.q_matrix = np.random.normal(0, scale, size=(n_items, k))
+        self.p_matrix = self.rng.normal(0, scale, size=(n_users, k))
+        self.q_matrix = self.rng.normal(0, scale, size=(n_items, k))
 
         self.user_id_to_idx = {ids: idx for idx, ids in enumerate(unique_users)}
         self.item_id_to_idx = {ids: idx for idx, ids in enumerate(unique_items)}
@@ -50,9 +53,9 @@ class MatrixFactorization:
 
         user_positives = self.user_watched_idx[user_idx]
 
-        j_idx = np.random.choice(self.all_item_indices)
+        j_idx = self.rng.choice(self.all_item_indices)
         while j_idx in user_positives:
-            j_idx = np.random.choice(self.all_item_indices)
+            j_idx = self.rng.choice(self.all_item_indices)
 
         return int(j_idx)
 
@@ -78,7 +81,7 @@ class MatrixFactorization:
         val_i = np.array([self.item_id_to_idx[mid] for mid in val_filtered["movieId"]])
 
         for epoch in range(epochs):
-            perm = np.random.permutation(n_samples)
+            perm = self.rng.permutation(n_samples)
             bpr_loss = 0.0
 
             for idx in perm:
