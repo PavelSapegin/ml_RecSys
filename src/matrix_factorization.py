@@ -2,16 +2,21 @@ import numpy as np
 import pandas as pd
 
 from src.baseline import PopularityBaseline
-from src.preprocessing import leave_k_last
 
 
 class MatrixFactorization:
+    def __init__(
+        self,
+        train: pd.DataFrame,
+        val: pd.DataFrame,
+        learning_rate: float = 0.005,
+        lm: float = 0.02,
+        k: int = 20,
+        fallback_model: PopularityBaseline | None = None,
+    ):
+        self.train_fit = train
+        self.val_fit = val
 
-    def __init__(self, df: pd.DataFrame, learning_rate: float =1e-2, lm: float = 1e-2, 
-                 k: int = 100, fallback_model: PopularityBaseline | None = None):
-        self.df = df
-        self.train_fit, self.val_fit = leave_k_last(self.df, k=1)
-        
         unique_users = self.train_fit["userId"].unique()
         unique_items = self.train_fit["movieId"].unique()
         n_users = len(unique_users)
@@ -20,131 +25,142 @@ class MatrixFactorization:
         self.k = k
         self.learning_rate = learning_rate
         self.lm = lm
-        self.mu = self.train_fit["rating"].mean()
-        self.bias_user = np.zeros(n_users)
-        self.bias_item = np.zeros(n_items)
-        self.p_matrix = np.random.normal(0, 0.01, size=(n_users, k))
-        self.q_matrix = np.random.normal(0, 0.01, size=(n_items, k))
+
+        scale = 1.0 / np.sqrt(k)
+        self.p_matrix = np.random.normal(0, scale, size=(n_users, k))
+        self.q_matrix = np.random.normal(0, scale, size=(n_items, k))
 
         self.user_id_to_idx = {ids: idx for idx, ids in enumerate(unique_users)}
         self.item_id_to_idx = {ids: idx for idx, ids in enumerate(unique_items)}
         self.idx_to_item_id = {idx: movie_id for movie_id, idx in self.item_id_to_idx.items()}
-        self.user_watched = self.df.groupby("userId")["movieId"].apply(set).to_dict()
+
+        self.user_watched_idx = {}
+        for uid, group in self.train_fit.groupby("userId"):
+            u_idx = self.user_id_to_idx[uid]
+            i_indices = {
+                self.item_id_to_idx[mid] for mid in group["movieId"] if mid in self.item_id_to_idx
+            }
+            self.user_watched_idx[u_idx] = i_indices
+
+        self.all_item_indices = np.arange(n_items)
 
         self.fallback_model = fallback_model or PopularityBaseline(self.train_fit)
 
-    def fit(self,) -> "MatrixFactorization":
+    def _sample_negative(self, user_idx: int) -> int:
 
-        
-        best_val_loss = float("inf")
-        best_epoch = 0
+        user_positives = self.user_watched_idx[user_idx]
+
+        j_idx = np.random.choice(self.all_item_indices)
+        while j_idx in user_positives:
+            j_idx = np.random.choice(self.all_item_indices)
+
+        return int(j_idx)
+
+    def fit(self, n_negatives: int = 5) -> "MatrixFactorization":
+        best_val_loss = np.inf
         epochs = 100
         patience_counter = 0
-        patience = 10
+        patience = 7
 
         p_matrix_best = self.p_matrix.copy()
         q_matrix_best = self.q_matrix.copy()
-        bias_user_best = self.bias_user.copy()
-        bias_item_best = self.bias_item.copy()
+
+        u_indices = np.array([self.user_id_to_idx[uid] for uid in self.train_fit["userId"]])
+        i_indices = np.array([self.item_id_to_idx[mid] for mid in self.train_fit["movieId"]])
+        n_samples = len(u_indices)
+
+        val_mask = [
+            (row.userId in self.user_id_to_idx) and (row.movieId in self.item_id_to_idx)
+            for row in self.val_fit.itertuples()
+        ]
+        val_filtered = self.val_fit[val_mask]
+        val_u = np.array([self.user_id_to_idx[uid] for uid in val_filtered["userId"]])
+        val_i = np.array([self.item_id_to_idx[mid] for mid in val_filtered["movieId"]])
 
         for epoch in range(epochs):
+            perm = np.random.permutation(n_samples)
+            bpr_loss = 0.0
 
-            shuffled_train = self.train_fit.sample(frac=1, random_state=42 + epoch)
+            for idx in perm:
+                u = u_indices[idx]
+                i = i_indices[idx]
 
-            train_loss = 0.0
-            squared_error = 0.0
-            for row in shuffled_train.itertuples():
+                for _ in range(n_negatives):
+                    j = self._sample_negative(u)
 
-                u = self.user_id_to_idx[row.userId]
-                i = self.item_id_to_idx[row.movieId]
-                r = row.rating
+                    p_u = self.p_matrix[u]
+                    q_i = self.q_matrix[i]
+                    q_j = self.q_matrix[j]
 
-                rating_pred = self.mu + self.bias_user[u] + self.bias_item[i] + self.p_matrix[u] @ \
-                self.q_matrix[i]
-                error = r - rating_pred
+                    x_uij = np.dot(p_u, q_i - q_j)
 
-                p_old = self.p_matrix[u].copy()
-                q_old = self.q_matrix[i].copy()
-                self.p_matrix[u] += self.learning_rate * (error * q_old - self.lm * p_old)
-                self.q_matrix[i] += self.learning_rate * (error * p_old - self.lm * q_old)
-                self.bias_user[u] += self.learning_rate * (error - self.lm * self.bias_user[u])
-                self.bias_item[i] += self.learning_rate * (error - self.lm * self.bias_item[i])
+                    bpr_loss += np.log1p(np.exp(-x_uij))
 
-                squared_error += error**2
+                    sigmoid_grad = 1.0 / (1.0 + np.exp(x_uij))
 
-            train_loss = np.sqrt(squared_error/len(shuffled_train))
+                    p_u_old = p_u.copy()
+                    q_i_old = q_i.copy()
+                    q_j_old = q_j.copy()
 
-            squared_error = 0.0
-            val_loss = 0.0
-            skipped_ids = 0
-            for row in self.val_fit.itertuples():
+                    self.p_matrix[u] += self.learning_rate * (
+                        sigmoid_grad * (q_i_old - q_j_old) - self.lm * p_u_old
+                    )
+                    self.q_matrix[i] += self.learning_rate * (
+                        sigmoid_grad * p_u_old - self.lm * q_i_old
+                    )
+                    self.q_matrix[j] += self.learning_rate * (
+                        -sigmoid_grad * p_u_old - self.lm * q_j_old
+                    )
+            train_loss = bpr_loss / (n_samples * n_negatives)
 
-                if row.userId not in self.user_id_to_idx or row.movieId not in self.item_id_to_idx:
-                    skipped_ids += 1
-                    continue
+            if len(val_u) > 0:
+                val_j = np.array([self._sample_negative(u) for u in val_u])
 
-                u = self.user_id_to_idx[row.userId]
-                i = self.item_id_to_idx[row.movieId]
-                r = row.rating
+                val_x_uij = np.sum(
+                    self.p_matrix[val_u] * (self.q_matrix[val_i] - self.q_matrix[val_j]), axis=1
+                )
+                val_loss = np.mean(np.log1p(np.exp(-val_x_uij)))
+            else:
+                val_loss = 0.0
 
-                rating_pred = self.mu + self.bias_user[u] + self.bias_item[i] + self.p_matrix[u] @ \
-                self.q_matrix[i]
-                squared_error += (r - rating_pred)**2
-
-            val_count = (len(self.val_fit) - skipped_ids)
-            val_loss = np.sqrt(squared_error/val_count) if val_count > 0 else float("inf") 
-
-            print(f"[{epoch}/{epochs}] Train loss: {train_loss:.4f}, Val loss: {val_loss:.4f}")
+            print(
+f"[{epoch + 1:02d}/{epochs}] Train BPR Loss: {train_loss:.4f} | Val BPR Loss: {val_loss:.4f}"
+            )
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
-
                 p_matrix_best = self.p_matrix.copy()
                 q_matrix_best = self.q_matrix.copy()
-                bias_user_best = self.bias_user.copy()
-                bias_item_best = self.bias_item.copy()
-
                 patience_counter = 0
-
             else:
                 patience_counter += 1
-
-                if patience_counter == patience:
-                    best_epoch = epoch
-                    print(f"[Final best epoch: {best_epoch}], Train loss: {train_loss:.4f}, \
-                          Val loss: {val_loss:.5f}")
+                if patience_counter >= patience:
+                    print(
+                        f"Early stopping at epoch {epoch + 1}. Best Val Loss: {best_val_loss:.4f}"
+                    )
                     break
-
 
         self.p_matrix = p_matrix_best
         self.q_matrix = q_matrix_best
-        self.bias_user = bias_user_best
-        self.bias_item = bias_item_best
 
         return self
 
-
-    def recommend_top_n(self, userId: int, n:int) -> list:
-
+    def recommend_top_n(self, userId: int, n: int = 10) -> list:
         if userId not in self.user_id_to_idx:
             fallback_recs = self.fallback_model.recommend_top_n(n=n)
-            return [(movie_id, self.mu) for movie_id in fallback_recs]
+            return [(movieId, 0.0) for movieId in fallback_recs]
 
         idx = self.user_id_to_idx[userId]
-
         user_vector = self.p_matrix[idx]
 
-        pred_ratings = self.mu + self.bias_user[idx] + self.bias_item + user_vector @ \
-        self.q_matrix.T
+        pred_ratings = np.dot(self.q_matrix, user_vector)
 
-        watched_movie_ids = self.user_watched.get(userId, set())
-        watched_indices = [self.item_id_to_idx[m_id] for m_id in watched_movie_ids 
-                           if m_id in self.item_id_to_idx]
-
+        watched_indices = list(self.user_watched_idx.get(idx, set()))
         pred_ratings[watched_indices] = -np.inf
-        top_n_indices = np.argsort(pred_ratings)[::-1][:n]
 
-        recommendations = [(self.idx_to_item_id[idx], float(pred_ratings[idx])) 
-                           for idx in top_n_indices]
+        top_n_indices = np.argpartition(pred_ratings, -n)[-n:]
+        top_n_indices = top_n_indices[np.argsort(pred_ratings[top_n_indices])][::-1]
+
+        recommendations = [(self.idx_to_item_id[i], float(pred_ratings[i])) for i in top_n_indices]
 
         return recommendations
