@@ -29,6 +29,13 @@ class ContentBasedRecommender:
 
         self.popularity_baseline: PopularityBaseline | None = None
 
+    def _preprocess_text(self, series: pd.Series) -> pd.Series:
+        return (
+        series.fillna("")
+        .astype(str)
+        .str.replace("-", "_", regex=False)
+        .str.replace("|", " ", regex=False)
+    )
     def fit(
         self,
         movies: pd.DataFrame,
@@ -40,7 +47,8 @@ class ContentBasedRecommender:
     ) -> "ContentBasedRecommender":
 
         self.movies_df = movies.copy().set_index(item_col)
-        self.X_tfidf = self.vectorizer.fit_transform(self.movies_df[text_col])
+        cleaned_text = self._preprocess_text(self.movies_df[text_col])
+        self.X_tfidf = self.vectorizer.fit_transform(cleaned_text)
 
 
         self.popularity_baseline = PopularityBaseline(
