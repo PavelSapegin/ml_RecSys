@@ -19,7 +19,11 @@ class ItemBasedCF:
         filtered_df = train_df[train_df["movieId"].isin(valid_items)]
 
         self.user_item_df_ = filtered_df.pivot(index="userId", columns="movieId", values="rating")
-        filled_df = self.user_item_df_.fillna(0.0)
+
+        user_means = self.user_item_df_.mean(axis=1)
+        centered_df = self.user_item_df_.sub(user_means, axis=0)
+
+        filled_df = centered_df.fillna(0.0)
 
         sim_matrix = cosine_similarity(filled_df.T)
         np.fill_diagonal(sim_matrix, 0.0)
