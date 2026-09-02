@@ -145,7 +145,7 @@ f"[{epoch + 1:02d}/{epochs}] Train BPR Loss: {train_loss:.4f} | Val BPR Loss: {v
 
         return self
 
-    def recommend_top_n(self, userId: int, n: int = 10) -> list:
+    def recommend_top_n(self, userId: int, n: int = 10, filtered_watched: bool = True) -> list:
         if userId not in self.user_id_to_idx:
             fallback_recs = self.fallback_model.recommend_top_n(n=n)
             return [(movieId, 0.0) for movieId in fallback_recs]
@@ -155,12 +155,21 @@ f"[{epoch + 1:02d}/{epochs}] Train BPR Loss: {train_loss:.4f} | Val BPR Loss: {v
 
         pred_ratings = np.dot(self.q_matrix, user_vector)
 
-        watched_indices = list(self.user_watched_idx.get(idx, set()))
-        pred_ratings[watched_indices] = -np.inf
+        if filtered_watched:
+            watched_indices = list(self.user_watched_idx.get(idx, set()))
+            pred_ratings[watched_indices] = -np.inf
 
-        top_n_indices = np.argpartition(pred_ratings, -n)[-n:]
-        top_n_indices = top_n_indices[np.argsort(pred_ratings[top_n_indices])][::-1]
+        n = min(n, len(pred_ratings))
+
+        if n == len(pred_ratings):
+            top_n_indices = np.argsort(pred_ratings)[::-1]
+        else:
+                
+            top_n_indices = np.argpartition(pred_ratings, -n)[-n:]
+            top_n_indices = top_n_indices[np.argsort(pred_ratings[top_n_indices])][::-1]
 
         recommendations = [(self.idx_to_item_id[i], float(pred_ratings[i])) for i in top_n_indices]
-
+    
         return recommendations
+
+    
