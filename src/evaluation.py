@@ -1,4 +1,8 @@
 import math
+from typing import Any
+
+import numpy as np
+import pandas as pd
 
 
 def precision_at_k(recommended: list, relevant: set, k: int) -> float:
@@ -40,6 +44,61 @@ def ndcg_at_k(recommended: list, relevant: set, k: int) -> float:
     return dcg / idcg
 
 
+def evaluate_recommender(
+    model: Any,
+    test_df: pd.DataFrame,
+    k: int = 10,
+    rating_threshold: float = 4.0,
+    user_col: str = "userId",
+    item_col: str = "movieId",
+    rating_col: str = "rating",
+) -> dict[str, float]:
+
+    relevant_test = test_df[test_df[rating_col] >= rating_threshold]
+
+    if hasattr(model, "user_id_to_idx"):
+        relevant_test = relevant_test[relevant_test[user_col].isin(model.user_id_to_idx)]
+        
+    user_relevant_map = (
+        relevant_test.groupby(user_col)[item_col]
+        .apply(set)
+        .to_dict()
+    )
+
+    metrics: dict[str, list] = {"precision": [], "recall": [], "ndcg": []}
+
+
+    for user_id, relevant_items in user_relevant_map.items():
+
+        if not relevant_items:
+            continue
+
+        recs = model.recommend_top_n(
+            user_id=user_id,
+            n=k,
+            filtered_watched=True,
+        )
+        recommended_items = [movieId for movieId, _ in recs]
+
+
+        p_at_k = precision_at_k(recommended_items, relevant_items, k)
+        r_at_k = recall_at_k(recommended_items, relevant_items, k)
+        n_at_k = ndcg_at_k(recommended_items, relevant_items, k)
+
+        metrics["precision"].append(p_at_k)
+        metrics["recall"].append(r_at_k)
+        metrics["ndcg"].append(n_at_k)
+
+    if not metrics["precision"]:
+        return {f"Precision@{k}": 0.0, f"Recall@{k}": 0.0, f"NDCG@{k}": 0.0}
+    
+    return {
+        f"Precision@{k}": float(np.mean(metrics["precision"])),
+        f"Recall@{k}": float(np.mean(metrics["recall"])),
+        f"NDCG@{k}": float(np.mean(metrics["ndcg"])),
+    }
+
+
 if __name__ == "__main__":
     recommended = ["Film_A", "Film_B", "Film_C", "Film_D", "Film_E"]
     relevant_1_pos = {"Film_A"}
@@ -59,4 +118,3 @@ if __name__ == "__main__":
             abs(recall_at_k(recommended, relevant_3_pos, k) - 1.0) < 1e-3 and \
             abs(ndcg_at_k(recommended, relevant_3_pos, k) - 0.5) < 1e-3
             
-    
