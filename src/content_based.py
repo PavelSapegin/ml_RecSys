@@ -96,11 +96,9 @@ class ContentBasedRecommender:
     def recommend_top_n(
         self,
         user_id: Any,
-        top_n: int = 10,
-        filter_watched: bool = True,
-        return_titles_only: bool = True,
-        title_col: str = "title",
-    ) -> list[str] | pd.Series:
+        n: int = 10,
+        filtered_watched: bool = True,
+    ) -> list[tuple[Any, float]]:
 
         if (
             self.movies_df is None
@@ -113,41 +111,30 @@ class ContentBasedRecommender:
 
 
         if user_id not in self.user_profiles:
-
-            raw_pop_ids = self.popularity_baseline.recommend_top_n(
-                n=top_n * 2
+            fallback_recs = self.popularity_baseline.recommend_top_n(
+                n=n * 2
             )
 
+            pop_ids = [idx for idx in fallback_recs if idx in self.movies_df.index]
 
-            pop_ids = [idx for idx in raw_pop_ids if idx in self.movies_df.index]
-
-            if filter_watched and user_id in self.user_watched:
+            if filtered_watched and user_id in self.user_watched:
                 watched = self.user_watched[user_id]
                 pop_ids = [idx for idx in pop_ids if idx not in watched]
 
-            top_pop_ids = pop_ids[:top_n]
+            top_pop_ids = pop_ids[:n]
 
-            if return_titles_only:
-                return list(
-                    self.movies_df.loc[top_pop_ids][title_col].tolist()
-                )
-            return pd.Series(1.0, index=top_pop_ids)
-
-
+            return [(movieId, 0.0) for movieId in top_pop_ids]
+        
         user_profile = self.user_profiles[user_id].reshape(1, -1)
 
         sim_scores = cosine_similarity(user_profile, self.X_tfidf).flatten()
         rec_scores = pd.Series(sim_scores, index=self.movies_df.index)
 
-        if filter_watched and user_id in self.user_watched:
+        if filtered_watched and user_id in self.user_watched:
             watched = self.user_watched[user_id]
             rec_scores = rec_scores.drop(index=list(watched), errors="ignore")
 
-        top_scores = rec_scores.sort_values(ascending=False).head(top_n)
+        n = min(n, len(rec_scores))
+        top_scores = rec_scores.sort_values(ascending=False).head(n)
 
-        if return_titles_only:
-            return list(
-                self.movies_df.loc[top_scores.index][title_col].tolist()
-            )
-
-        return top_scores
+        return [(movieId, float(score)) for movieId, score in top_scores.items()]
