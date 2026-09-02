@@ -145,12 +145,12 @@ f"[{epoch + 1:02d}/{epochs}] Train BPR Loss: {train_loss:.4f} | Val BPR Loss: {v
 
         return self
 
-    def recommend_top_n(self, userId: int, n: int = 10, filtered_watched: bool = True) -> list:
-        if userId not in self.user_id_to_idx:
+    def recommend_top_n(self, user_id: int, n: int = 10, filtered_watched: bool = True) -> list:
+        if user_id not in self.user_id_to_idx:
             fallback_recs = self.fallback_model.recommend_top_n(n=n)
             return [(movieId, 0.0) for movieId in fallback_recs]
 
-        idx = self.user_id_to_idx[userId]
+        idx = self.user_id_to_idx[user_id]
         user_vector = self.p_matrix[idx]
 
         pred_ratings = np.dot(self.q_matrix, user_vector)
