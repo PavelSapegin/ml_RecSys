@@ -6,20 +6,28 @@ from scipy.sparse import spmatrix
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from src.baseline import PopularityBaseline
+
 
 class ContentBasedRecommender:
 
-    def __init__(self, vectorizer_params: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        vectorizer_params: dict[str, Any] | None = None,
+        popularity_quantile: float = 0.75,
+    ) -> None:
         params = vectorizer_params or {}
         self.vectorizer = TfidfVectorizer(**params)
+        self.popularity_quantile = popularity_quantile
 
         self.movies_df: pd.DataFrame | None = None
-
         self.X_tfidf: spmatrix | None = None
-
 
         self.user_profiles: dict[Any, np.ndarray] = {}
         self.user_watched: dict[Any, set[Any]] = {}
+
+
+        self.popularity_baseline: PopularityBaseline | None = None
 
     def fit(
         self,
@@ -34,15 +42,21 @@ class ContentBasedRecommender:
         self.movies_df = movies.copy().set_index(item_col)
         self.X_tfidf = self.vectorizer.fit_transform(self.movies_df[text_col])
 
+
+        self.popularity_baseline = PopularityBaseline(
+            ratings.rename(
+                columns={item_col: "movieId", rating_col: "rating"}
+            ),
+            quantile=self.popularity_quantile,
+        )
+
         tfidf_df = pd.DataFrame(
             self.X_tfidf.toarray(), index=self.movies_df.index
         )
 
         grouped = ratings.groupby(user_col)
 
-
         for user_id, user_data in grouped:
-
             user_df = pd.DataFrame(user_data)
 
             watched_items = user_df[item_col].tolist()
@@ -54,6 +68,7 @@ class ContentBasedRecommender:
 
             if valid_user_data.empty:
                 continue
+
 
             user_items_ids = valid_user_data[item_col].tolist()
             user_ratings = valid_user_data[rating_col].to_numpy()
@@ -79,16 +94,37 @@ class ContentBasedRecommender:
         title_col: str = "title",
     ) -> list[str] | pd.Series:
 
-
-        if self.movies_df is None or self.X_tfidf is None:
+        if (
+            self.movies_df is None
+            or self.X_tfidf is None
+            or self.popularity_baseline is None
+        ):
             raise RuntimeError(
                 "Модель не обучена. Вызовите метод fit() перед рекомендациями."
             )
 
+
         if user_id not in self.user_profiles:
-            raise ValueError(
-                f"Пользователь с user_id={user_id} отсутствует в обученной модели."
+
+            raw_pop_ids = self.popularity_baseline.recommend_top_n(
+                n=top_n * 2
             )
+
+
+            pop_ids = [idx for idx in raw_pop_ids if idx in self.movies_df.index]
+
+            if filter_watched and user_id in self.user_watched:
+                watched = self.user_watched[user_id]
+                pop_ids = [idx for idx in pop_ids if idx not in watched]
+
+            top_pop_ids = pop_ids[:top_n]
+
+            if return_titles_only:
+                return list(
+                    self.movies_df.loc[top_pop_ids][title_col].tolist()
+                )
+            return pd.Series(1.0, index=top_pop_ids)
+
 
         user_profile = self.user_profiles[user_id].reshape(1, -1)
 
