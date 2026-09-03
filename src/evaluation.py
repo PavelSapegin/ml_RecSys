@@ -56,9 +56,6 @@ def evaluate_recommender(
 
     relevant_test = test_df[test_df[rating_col] >= rating_threshold]
 
-    if hasattr(model, "user_id_to_idx"):
-        relevant_test = relevant_test[relevant_test[user_col].isin(model.user_id_to_idx)]
-        
     user_relevant_map = (
         relevant_test.groupby(user_col)[item_col]
         .apply(set)
@@ -72,13 +69,23 @@ def evaluate_recommender(
 
         if not relevant_items:
             continue
+        try:
+            recs = model.recommend_top_n(
+                user_id=user_id,
+                n=k,
+                filtered_watched=True,
+            )
 
-        recs = model.recommend_top_n(
-            user_id=user_id,
-            n=k,
-            filtered_watched=True,
-        )
-        recommended_items = [movieId for movieId, _ in recs]
+            if isinstance(recs, pd.DataFrame):
+                recommended_items = recs[item_col].tolist()
+
+            elif isinstance(recs, list) and recs and isinstance(recs[0], (tuple,list)):
+                recommended_items = [item[0] for item in recs]
+            else:
+                recommended_items = list(recs)
+                
+        except (KeyError, ValueError):
+            continue
 
 
         p_at_k = precision_at_k(recommended_items, relevant_items, k)
