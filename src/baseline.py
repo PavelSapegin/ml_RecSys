@@ -22,7 +22,7 @@ class PopularityBaseline:
         movie_stats["weighted_rating"] = self._bayes_weighted_score(df_stats=movie_stats, m=m, C=C)
         movie_stats = movie_stats.sort_values(by="weighted_rating", ascending=False)
 
-        return movie_stats["movieId"].to_list()
+        return list(movie_stats["movieId"])
 
     def recommend(self) -> list:
         return self._ranked_movies
