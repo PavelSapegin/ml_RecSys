@@ -16,8 +16,12 @@ class ContentBasedRecommender:
         vectorizer_params: dict[str, Any] | None = None,
         popularity_quantile: float = 0.75,
     ) -> None:
-        params = vectorizer_params or {}
-        self.vectorizer = TfidfVectorizer(**params)
+
+        default_params = {"token_pattern": r"(?u)\b\w+\b"}
+        if vectorizer_params:
+            default_params.update(vectorizer_params)
+
+        self.vectorizer = TfidfVectorizer(**default_params)
         self.popularity_quantile = popularity_quantile
 
         self.movies_df: pd.DataFrame | None = None
@@ -25,17 +29,17 @@ class ContentBasedRecommender:
 
         self.user_profiles: dict[Any, np.ndarray] = {}
         self.user_watched: dict[Any, set[Any]] = {}
-
-
         self.popularity_baseline: PopularityBaseline | None = None
 
     def _preprocess_text(self, series: pd.Series) -> pd.Series:
         return (
-        series.fillna("")
-        .astype(str)
-        .str.replace("-", "_", regex=False)
-        .str.replace("|", " ", regex=False)
-    )
+            series.fillna("unknown")
+            .astype(str)
+            .str.replace("-", "_", regex=False)
+            .str.replace("|", " ", regex=False)
+            .str.replace("(no genres listed)", "unknown", regex=False)
+        )
+
     def fit(
         self,
         movies: pd.DataFrame,
@@ -46,42 +50,37 @@ class ContentBasedRecommender:
         rating_col: str = "rating",
     ) -> "ContentBasedRecommender":
 
-        self.movies_df = movies.copy().set_index(item_col)
+        clean_movies = movies.drop_duplicates(subset=[item_col]).copy()
+        self.movies_df = clean_movies.set_index(item_col)
+
         cleaned_text = self._preprocess_text(self.movies_df[text_col])
         self.X_tfidf = self.vectorizer.fit_transform(cleaned_text)
 
-
         self.popularity_baseline = PopularityBaseline(
-            ratings.rename(
-                columns={item_col: "movieId", rating_col: "rating"}
-            ),
+            ratings.rename(columns={item_col: "movieId", rating_col: "rating"}),
             quantile=self.popularity_quantile,
         )
 
-        tfidf_df = pd.DataFrame(
-            self.X_tfidf.toarray(), index=self.movies_df.index
-        )
+
+        movie_id_to_row = {mid: idx for idx, mid in enumerate(self.movies_df.index)}
 
         grouped = ratings.groupby(user_col)
 
         for user_id, user_data in grouped:
-            user_df = pd.DataFrame(user_data)
-
-            watched_items = user_df[item_col].tolist()
+            watched_items = user_data[item_col].tolist()
             self.user_watched[user_id] = set(watched_items)
 
-            valid_user_data = user_df[
-                user_df[item_col].isin(self.movies_df.index)
-            ]
+            valid_user_data = user_data[user_data[item_col].isin(movie_id_to_row)]
 
             if valid_user_data.empty:
                 continue
 
-
             user_items_ids = valid_user_data[item_col].tolist()
             user_ratings = valid_user_data[rating_col].to_numpy()
 
-            user_item_vectors = tfidf_df.loc[user_items_ids].values
+
+            row_indices = [movie_id_to_row[mid] for mid in user_items_ids]
+            user_item_vectors = self.X_tfidf[row_indices].toarray()
 
             sum_ratings = user_ratings.sum()
             if sum_ratings > 0:
@@ -100,31 +99,19 @@ class ContentBasedRecommender:
         filtered_watched: bool = True,
     ) -> list[tuple[Any, float]]:
 
-        if (
-            self.movies_df is None
-            or self.X_tfidf is None
-            or self.popularity_baseline is None
-        ):
-            raise RuntimeError(
-                "Модель не обучена. Вызовите метод fit() перед рекомендациями."
-            )
-
+        if self.movies_df is None or self.X_tfidf is None or self.popularity_baseline is None:
+            raise RuntimeError("Модель не обучена. Вызовите метод fit() перед рекомендациями.")
 
         if user_id not in self.user_profiles:
-            fallback_recs = self.popularity_baseline.recommend_top_n(
-                n=n * 2
-            )
-
+            fallback_recs = self.popularity_baseline.recommend_top_n(n=n * 2)
             pop_ids = [idx for idx in fallback_recs if idx in self.movies_df.index]
 
             if filtered_watched and user_id in self.user_watched:
                 watched = self.user_watched[user_id]
                 pop_ids = [idx for idx in pop_ids if idx not in watched]
 
-            top_pop_ids = pop_ids[:n]
+            return [(movieId, 0.0) for movieId in pop_ids[:n]]
 
-            return [(movieId, 0.0) for movieId in top_pop_ids]
-        
         user_profile = self.user_profiles[user_id].reshape(1, -1)
 
         sim_scores = cosine_similarity(user_profile, self.X_tfidf).flatten()
