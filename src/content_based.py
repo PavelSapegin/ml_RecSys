@@ -10,7 +10,6 @@ from src.baseline import PopularityBaseline
 
 
 class ContentBasedRecommender:
-
     def __init__(
         self,
         vectorizer_params: dict[str, Any] | None = None,
@@ -61,7 +60,6 @@ class ContentBasedRecommender:
             quantile=self.popularity_quantile,
         )
 
-
         movie_id_to_row = {mid: idx for idx, mid in enumerate(self.movies_df.index)}
 
         grouped = ratings.groupby(user_col)
@@ -77,7 +75,6 @@ class ContentBasedRecommender:
 
             user_items_ids = valid_user_data[item_col].tolist()
             user_ratings = valid_user_data[rating_col].to_numpy()
-
 
             row_indices = [movie_id_to_row[mid] for mid in user_items_ids]
             user_item_vectors = self.X_tfidf[row_indices].toarray()

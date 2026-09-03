@@ -127,7 +127,7 @@ class MatrixFactorization:
                 val_loss = 0.0
 
             print(
-f"[{epoch + 1:02d}/{epochs}] Train BPR Loss: {train_loss:.4f} | Val BPR Loss: {val_loss:.4f}"
+                f"[{epoch + 1:02d}/{epochs}] Train BPR Loss: {train_loss:.4f} | Val BPR Loss: {val_loss:.4f}"
             )
 
             if val_loss < best_val_loss:
@@ -167,12 +167,9 @@ f"[{epoch + 1:02d}/{epochs}] Train BPR Loss: {train_loss:.4f} | Val BPR Loss: {v
         if n == len(pred_ratings):
             top_n_indices = np.argsort(pred_ratings)[::-1]
         else:
-                
             top_n_indices = np.argpartition(pred_ratings, -n)[-n:]
             top_n_indices = top_n_indices[np.argsort(pred_ratings[top_n_indices])][::-1]
 
         recommendations = [(self.idx_to_item_id[i], float(pred_ratings[i])) for i in top_n_indices]
-    
-        return recommendations
 
-    
+        return recommendations
