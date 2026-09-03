@@ -127,7 +127,9 @@ class MatrixFactorization:
                 val_loss = 0.0
 
             print(
-                f"[{epoch + 1:02d}/{epochs}] Train BPR Loss: {train_loss:.4f} | Val BPR Loss: {val_loss:.4f}"
+                f"[{epoch + 1:02d}/{epochs}] "
+                f"Train BPR Loss: {train_loss:.4f} | "
+                f"Val BPR Loss: {val_loss:.4f}"
             )
 
             if val_loss < best_val_loss:
