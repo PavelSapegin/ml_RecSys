@@ -32,11 +32,12 @@ class ContentBasedRecommender:
 
     def _preprocess_text(self, series: pd.Series) -> pd.Series:
         return (
-            series.fillna("unknown")
+            series.fillna("")
             .astype(str)
             .str.replace("-", "_", regex=False)
             .str.replace("|", " ", regex=False)
-            .str.replace("(no genres listed)", "unknown", regex=False)
+            .str.replace("(no genres listed)", "", regex=False)
+            .str.strip()
         )
 
     def fit(

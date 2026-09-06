@@ -65,21 +65,7 @@ def evaluate_recommender(
         if not relevant_items:
             continue
         try:
-            recs = model.recommend_top_n(
-                user_id=user_id,
-                n=k,
-                filtered_watched=True,
-            )
-
-            if isinstance(recs, pd.DataFrame):
-                recommended_items = recs[item_col].tolist()
-
-            elif isinstance(recs, list) and recs and isinstance(recs[0], (tuple, list)):
-                recommended_items = [item[0] for item in recs]
-            else:
-                recommended_items = list(recs)
-
-        except (KeyError, ValueError):
+        except (KeyError, ValueError, TypeError):
             continue
 
         p_at_k = precision_at_k(recommended_items, relevant_items, k)
