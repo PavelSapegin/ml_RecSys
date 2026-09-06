@@ -49,7 +49,6 @@ class MatrixFactorization:
 
         self.fallback_model = fallback_model or PopularityBaseline(self.train_fit)
 
-
     def _sample_negative(self, user_idx: int) -> int:
         user_positives = self.user_watched_idx[user_idx]
         if len(user_positives) >= len(self.all_item_indices):
