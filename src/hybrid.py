@@ -23,8 +23,11 @@ class HybridRecommender:
 
         min_val, max_val = series.min(), series.max()
 
-        if max_val == min_val or pd.isna(max_val):
-            return series
+        if pd.isna(min_val) or pd.isna(max_val):
+            return cast(pd.Series, series.fillna(0.0))
+
+        if max_val == min_val:
+            return cast(pd.Series, pd.Series(0.0, index=series.index))
 
         scaled = (series - min_val) / (max_val - min_val)
         return cast(pd.Series, scaled)

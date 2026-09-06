@@ -8,7 +8,7 @@ import pandas as pd
 def precision_at_k(recommended: list, relevant: set, k: int) -> float:
 
     if not relevant or k <= 0:
-        return 0
+        return 0.0
 
     rec_at_k = recommended[:k]
     hits = sum(1 for item in rec_at_k if item in relevant)
@@ -65,7 +65,20 @@ def evaluate_recommender(
         if not relevant_items:
             continue
         try:
-            recommended_items = model.recommend_top_n(user_id=user_id, n=k)
+            recommended_raw = model.recommend_top_n(user_id=user_id, n=k)
+
+            if isinstance(recommended_raw, pd.DataFrame):
+                if "movieId" in recommended_raw.columns:
+                    recommended_items = recommended_raw["movieId"].tolist()
+                elif "movie_id" in recommended_raw.columns:
+                    recommended_items = recommended_raw["movie_id"].tolist()
+                else:
+                    raise TypeError("DataFrame recommendations must contain 'movieId' or 'movie_id'.")
+            else:
+                recommended_items = [
+                    r[0] if isinstance(r, tuple) else r  # list[int] or list[tuple[id, score]]
+                    for r in recommended_raw
+                ]
         except (KeyError, ValueError, TypeError):
             continue
 

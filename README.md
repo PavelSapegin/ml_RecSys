@@ -33,7 +33,7 @@ ml_RecSys/
 │   ├── baseline.ipynb
 │   ├── content_based.ipynb
 │   ├── eda.ipynb
-│   ├── hibrid.ipynb
+│   ├── hybrid.ipynb
 │   ├── item_based_cf.ipynb
 │   └── mf.ipynb
 ├── src/                     # Исходный код моделей и утилит
@@ -425,5 +425,5 @@ MF. Помимо количественного
 
 Один эндпоинт `GET /recommendations/{user_id}`, принимает ID пользователя.
 
-**Response** (`RecommendationResponse`): список `RecommendationItem` - `movie_id`, `title`, `final_score` -
+**Response** (`RecommendationResponse`): список `RecommendationItem` - `movie_id`, `title`, `score` -
 счёт, насколько модель считает, что данный фильм понравится пользователю.
