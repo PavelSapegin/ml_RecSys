@@ -10,7 +10,10 @@ from app.schemas import RecommendationItem, RecommendationResponse
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    app.state.model = joblib.load(config.MODEL_PATH)
+    try:
+        app.state.model = joblib.load(config.MODEL_PATH)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to load model from {config.MODEL_PATH}") from exc
 
     yield
 
