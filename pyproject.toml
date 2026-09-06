@@ -57,6 +57,8 @@ module = [
   "sklearn.*",
   "scipy.*",
   "joblib",
-  "pydantic_settings"
+  "pydantic_settings",
+  "pydantic",
+  "fastapi"
 ]
 ignore_missing_imports = true
