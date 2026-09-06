@@ -2,9 +2,9 @@
 
 ## 1. Постановка задачи
 
-- Тип задачи: top-5 ranking
-- Feedback type: explicit (MovieLens ratings 1-5)
-- Хорошей рекомендацией будет являться 5 фильмов, которые пользователь точно бы посмотрел начиная с 1 места до 5
+- Тип задачи: top-10 ranking
+- Feedback type: explicit (MovieLens ratings 1-10)
+- Хорошей рекомендацией будет являться 10 фильмов, которые пользователь точно бы посмотрел начиная с 1 места до 10
 
 ## 2. Датасет
 
@@ -15,6 +15,27 @@
 - Ranking-метрики: NDCG@K
 - Evaluation-метрики: BPR Loss
 - Baseline для сравнения: Popularity-based
+
+## Как запустить
+
+```bash
+docker build -t rec_sys .
+docker run -p 8000:8000 rec_sys
+```
+
+Пример запроса:
+
+```python
+
+import requests
+
+user_id = 42
+url = f"http://127.0.0.1:8000/recommendations/{user_id}"
+
+response = requests.get(url)
+data = response.json()
+print(data)
+```
 
 ## EDA
 
