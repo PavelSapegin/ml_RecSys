@@ -40,24 +40,24 @@ class ItemBasedCF:
         )
         return self
 
-    def recommend_top_n(self, userId: int, top_n: int = 10) -> list[int]:
+    def recommend_top_n(self, user_id: int, n: int = 10) -> list[int]:
 
         if (
             self.user_item_df_ is None
             or self.item_sim_df_ is None
-            or userId not in self.user_item_df_.index
+            or user_id not in self.user_item_df_.index
         ):
-            return self.popular_items_[:top_n]
+            return self.popular_items_[:n]
 
-        user_ratings = self.user_item_df_.loc[userId].dropna()
+        user_ratings = self.user_item_df_.loc[user_id].dropna()
         watched_set = set(user_ratings.index)
 
         if not watched_set:
-            return self.popular_items_[:top_n]
+            return self.popular_items_[:n]
 
         valid_watched = [m for m in watched_set if m in self.item_sim_df_.columns]
         if not valid_watched:
-            return self.popular_items_[:top_n]
+            return self.popular_items_[:n]
 
         sim_sub = self.item_sim_df_.loc[:, valid_watched].to_numpy().copy()
         ratings_vec = user_ratings.loc[valid_watched].to_numpy() - 2.5
@@ -75,15 +75,15 @@ class ItemBasedCF:
 
         final_recs: list[int] = []
         for item in cf_recs:
-            if len(final_recs) == top_n:
+            if len(final_recs) == n:
                 break
             final_recs.append(item)
 
-        if len(final_recs) < top_n:
+        if len(final_recs) < n:
             for pop_item in self.popular_items_:
                 if pop_item not in watched_set and pop_item not in final_recs:
                     final_recs.append(pop_item)
-                if len(final_recs) == top_n:
+                if len(final_recs) == n:
                     break
 
         return final_recs
