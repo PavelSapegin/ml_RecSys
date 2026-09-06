@@ -65,7 +65,6 @@ docker run -p 8000:8000 rec_sys
 Пример запроса:
 
 ```python
-
 import requests
 
 user_id = 42
