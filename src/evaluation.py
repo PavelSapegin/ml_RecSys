@@ -73,7 +73,9 @@ def evaluate_recommender(
                 elif "movie_id" in recommended_raw.columns:
                     recommended_items = recommended_raw["movie_id"].tolist()
                 else:
-                    raise TypeError("DataFrame recommendations must contain 'movieId' or 'movie_id'.")
+                    raise TypeError(
+                        "Датафрейм рекомендаций должны содержать 'movieId' или 'movie_id'."
+                    )
             else:
                 recommended_items = [
                     r[0] if isinstance(r, tuple) else r  # list[int] or list[tuple[id, score]]
