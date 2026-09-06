@@ -38,7 +38,9 @@ def get_recommendations(
 
     preds = model.recommend_top_n(user_id, n=10)
     if not hasattr(preds, "itertuples"):
-        raise HTTPException(status_code=500, detail="Модель вернула неподдерживаемый формат предсказаний")
+        raise HTTPException(
+            status_code=500, detail="Модель вернула неподдерживаемый формат предсказаний"
+        )
 
     recommendations = [
         RecommendationItem(movie_id=row.movieId, title=row.title, score=row.final_score)
