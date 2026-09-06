@@ -8,7 +8,7 @@ import pandas as pd
 def precision_at_k(recommended: list, relevant: set, k: int) -> float:
 
     if not relevant or k <= 0:
-        return 0
+        return 0.0
 
     rec_at_k = recommended[:k]
     hits = sum(1 for item in rec_at_k if item in relevant)
