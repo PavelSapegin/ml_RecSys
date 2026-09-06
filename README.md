@@ -425,5 +425,5 @@ MF. Помимо количественного
 
 Один эндпоинт `GET /recommendations/{user_id}`, принимает ID пользователя.
 
-**Response** (`RecommendationResponse`): список `RecommendationItem` - `movie_id`, `title`, `final_score` -
+**Response** (`RecommendationResponse`): список `RecommendationItem` - `movie_id`, `title`, `score` -
 счёт, насколько модель считает, что данный фильм понравится пользователю.
