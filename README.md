@@ -33,7 +33,7 @@ ml_RecSys/
 │   ├── baseline.ipynb
 │   ├── content_based.ipynb
 │   ├── eda.ipynb
-│   ├── hibrid.ipynb
+│   ├── hybrid.ipynb
 │   ├── item_based_cf.ipynb
 │   └── mf.ipynb
 ├── src/                     # Исходный код моделей и утилит
