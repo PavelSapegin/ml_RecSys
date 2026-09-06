@@ -65,6 +65,7 @@ def evaluate_recommender(
         if not relevant_items:
             continue
         try:
+            recommended_items = model.recommend_top_n(user_id=user_id, n=k)
         except (KeyError, ValueError, TypeError):
             continue
 
