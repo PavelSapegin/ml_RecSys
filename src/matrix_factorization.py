@@ -49,16 +49,17 @@ class MatrixFactorization:
 
         self.fallback_model = fallback_model or PopularityBaseline(self.train_fit)
 
-def _sample_negative(self, user_idx: int) -> int:
-    user_positives = self.user_watched_idx[user_idx]
-    if len(user_positives) >= len(self.all_item_indices):
-        raise ValueError("Cannot sample negative item: user has interacted with all items.")
 
-    j_idx = int(self.rng.choice(self.all_item_indices))
-    while j_idx in user_positives:
+    def _sample_negative(self, user_idx: int) -> int:
+        user_positives = self.user_watched_idx[user_idx]
+        if len(user_positives) >= len(self.all_item_indices):
+            raise ValueError("Cannot sample negative item: user has interacted with all items.")
+
         j_idx = int(self.rng.choice(self.all_item_indices))
+        while j_idx in user_positives:
+            j_idx = int(self.rng.choice(self.all_item_indices))
 
-    return j_idx
+        return j_idx
 
     def fit(self, n_negatives: int = 5) -> "MatrixFactorization":
         best_val_loss = np.inf
