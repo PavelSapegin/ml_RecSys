@@ -13,7 +13,7 @@
 ## 3. Метрики
 
 - Ranking-метрики: NDCG@K
-- Evaluation-метрики: RMSE
+- Evaluation-метрики: BPR Loss
 - Baseline для сравнения: Popularity-based
 
 ## EDA
